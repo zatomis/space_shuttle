@@ -28,24 +28,17 @@ def draw(canvas):
     coroutine5 = blink(canvas, row+8, column, symbol='*')
     coroutines = [coroutine1,coroutine2,coroutine3,coroutine4,coroutine5]
     while True:
-        try:
-            coroutine.send(None)
-            time.sleep(0.5)
-            canvas.refresh()
-
-        except StopIteration:
+        for coroutine in coroutines.copy():
+            try:
+                coroutine.send(None)
+                time.sleep(0.5)
+                canvas.refresh()
+            except StopIteration:
+                coroutines.remove(coroutine)
+        if len(coroutines) == 0:
             break
-
 
 
 if __name__ == '__main__':
     curses.update_lines_cols()
     curses.wrapper(draw)
-
-    # coroutine = count_to_three(10)
-    # while True:
-    #     try:
-    #         coroutine.send(None)
-    #     except StopIteration:
-    #         break
-
