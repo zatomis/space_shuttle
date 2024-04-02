@@ -26,17 +26,16 @@ def draw(canvas):
     coroutine3 = blink(canvas, row+4, column, symbol='*')
     coroutine4 = blink(canvas, row+6, column, symbol='*')
     coroutine5 = blink(canvas, row+8, column, symbol='*')
-    coroutines = [coroutine1,coroutine2,coroutine3,coroutine4,coroutine5]
+    coroutines = [coroutine1, coroutine2, coroutine3, coroutine4, coroutine5]
     while True:
-        for coroutine in coroutines.copy():
+        for coroutine in coroutines:
             try:
                 coroutine.send(None)
-                time.sleep(0.5)
-                canvas.refresh()
+                time.sleep(0.2)
             except StopIteration:
-                coroutines.remove(coroutine)
-        if len(coroutines) == 0:
-            break
+                break
+        canvas.refresh()
+
 
 
 if __name__ == '__main__':
