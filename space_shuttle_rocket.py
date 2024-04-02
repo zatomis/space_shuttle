@@ -5,16 +5,20 @@ import curses
 async def blink(canvas, row, column, symbol='*'):
     while True:
         canvas.addstr(row, column, symbol, curses.A_DIM)
-        await asyncio.sleep(0)
+        for i in range(400):
+            await asyncio.sleep(0)
 
         canvas.addstr(row, column, symbol)
-        await asyncio.sleep(0)
+        for i in range(60):
+            await asyncio.sleep(0)
 
         canvas.addstr(row, column, symbol, curses.A_BOLD)
-        await asyncio.sleep(0)
+        for i in range(100):
+            await asyncio.sleep(0)
 
         canvas.addstr(row, column, symbol)
-        await asyncio.sleep(0)
+        for i in range(60):
+            await asyncio.sleep(0)
 
 
 def draw(canvas):
@@ -31,7 +35,6 @@ def draw(canvas):
         for coroutine in coroutines:
             try:
                 coroutine.send(None)
-                time.sleep(0.2)
             except StopIteration:
                 break
         canvas.refresh()
