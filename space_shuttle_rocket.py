@@ -2,10 +2,8 @@ import random
 import asyncio
 import curses
 import time
-from itertools import cycle
 
-STARS = 150
-
+STARS = 200
 SPACE_KEY_CODE = 32
 LEFT_KEY_CODE = 260
 RIGHT_KEY_CODE = 261
@@ -69,7 +67,7 @@ def draw_frame(canvas, start_row, start_column, text, negative=False):
                 continue
 
             symbol = symbol if not negative else ' '
-            canvas.addch(row, column, symbol)
+            canvas.addch(row, column, symbol, curses.A_BOLD)
 
 
 def get_frame_size(text):
@@ -78,6 +76,7 @@ def get_frame_size(text):
     rows = len(lines)
     columns = max([len(line) for line in lines])
     return rows, columns
+
 
 def load_frames():
     ship_frames = []
@@ -88,17 +87,44 @@ def load_frames():
     return ship_frames
 
 
+# async def animate_spaceship(canvas, row, column, ship_frames):
 
-async def animate_spaceship(canvas, row, column, ship_frames):
+async def animate_spaceship(canvas, ship_frames):
+    sprite = 0
+    row, column = curses.initscr().getmaxyx()
+    ship_size_row, ship_size_column = get_frame_size(ship_frames[sprite])
+    row_screen_edge = row - ship_size_row
+    column_screen_edge = column - ship_size_column
+    row = int(row/2)
+    column = int(column/2)
     while True:
-        draw_frame(canvas, row, column, ship_frames[1], negative=True)
-        draw_frame(canvas, row, column, ship_frames[0])
+        sprite += 1
+        sprite = 0 if sprite > 1 else 1
+        draw_frame(canvas, row, column, ship_frames[sprite])
         canvas.refresh()
         await asyncio.sleep(0)
 
-        # стираем предыдущий кадр, прежде чем рисовать новый
-        draw_frame(canvas, row, column, ship_frames[0], negative=True)
-        draw_frame(canvas, row, column, ship_frames[1])
+        # стираем 2 предыдущий кадр, прежде чем рисовать новый
+        draw_frame(canvas, row, column, ship_frames[sprite], negative=True)
+        sprite += 1
+        sprite = 0 if sprite > 1 else 1
+        draw_frame(canvas, row, column, ship_frames[sprite], negative=True)
+
+        get_row, get_column, get_space_pressed = read_controls(canvas)
+        row = row + get_row
+        column = column + get_column
+
+        if row < 0:
+            row = 0
+        if column < 0:
+            column = 0
+
+        if row > row_screen_edge:
+            row = row_screen_edge
+        if column > column_screen_edge:
+            column = column_screen_edge
+
+        draw_frame(canvas, row, column, ship_frames[sprite])
         canvas.refresh()
         await asyncio.sleep(0)
 
@@ -132,6 +158,7 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
         row += rows_speed
         column += columns_speed
 
+
 async def blink(canvas, row, column, symbol='*'):
     while True:
         if random.randint(0, 1):
@@ -157,21 +184,28 @@ async def blink(canvas, row, column, symbol='*'):
 
 def draw(canvas):
     stars = ['*', '+', '.', ':', '#']
-    curses.curs_set(False)
     rows, cols = curses.initscr().getmaxyx()
 
     coroutines = []
     coroutine = fire(canvas, rows/2, cols/2)
     coroutines.append(coroutine)
 
-    coroutine = animate_spaceship(canvas, rows/2, cols/2, load_frames())
+    # coroutine = animate_spaceship(canvas, rows/2, cols/2, load_frames())
+    coroutine = animate_spaceship(canvas, load_frames())
     coroutines.append(coroutine)
 
     for star in range(1, STARS):
-        coroutine = blink(canvas, random.randint(1, rows-1), random.randint(1, cols-1), symbol=random.choice(stars))
+        coroutine = blink(canvas, random.randint(1, rows-2), random.randint(1, cols-2), symbol=random.choice(stars))
         coroutines.append(coroutine)
-    count = 0
 
+    # iterator = cycle(coroutines)
+    # while True:
+    #     try:
+    #         next(iterator).send(None)
+    #         time.sleep(0.0001)
+    #     except StopIteration:
+    #         break
+    #     canvas.refresh()
 
     while True:
         for coroutine in coroutines.copy():
@@ -186,6 +220,7 @@ def draw(canvas):
 
 
 if __name__ == '__main__':
+    curses.initscr().nodelay(True)
+    curses.curs_set(False)
     curses.update_lines_cols()
     curses.wrapper(draw)
-
