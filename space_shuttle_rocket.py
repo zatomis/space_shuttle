@@ -99,7 +99,7 @@ async def animate_spaceship(canvas):
     row = int(row/2)
     column = int(column/2)
 
-    for frame in cycle([ship_frames[0], ship_frames[0], ship_frames[0], ship_frames[1], ship_frames[1], ship_frames[1]]):
+    for frame in cycle([ship_frames[0], ship_frames[0], ship_frames[1], ship_frames[1]]):
         get_row, get_column, get_space_pressed = read_controls(canvas)
         row = row + get_row
         column = column + get_column
@@ -118,7 +118,6 @@ async def animate_spaceship(canvas):
         await asyncio.sleep(0)
 
         draw_frame(canvas, row, column, frame, negative=True)
-        await asyncio.sleep(0)
 
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
@@ -152,7 +151,7 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
 
 
 async def blink(canvas, row, column, symbol='*'):
-    delay = random.randint(50, 200)
+    delay = random.randint(50, 100)
     while True:
         canvas.addstr(row, column, symbol, curses.A_DIM)
         for _ in range(delay):
@@ -178,8 +177,6 @@ def draw(canvas):
     coroutines = []
     coroutine = fire(canvas, rows/2, cols/2)
     coroutines.append(coroutine)
-
-    # coroutine = animate_spaceship(canvas, rows/2, cols/2, load_frames())
     coroutine = animate_spaceship(canvas)
     coroutines.append(coroutine)
 
