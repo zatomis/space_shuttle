@@ -13,6 +13,7 @@ DOWN_KEY_CODE = 258
 TIC_TIMEOUT = 0.01
 
 
+
 def read_controls(canvas):
     """Read keys pressed and returns tuple witl controls state."""
     rows_direction = columns_direction = 0
@@ -72,6 +73,18 @@ def draw_frame(canvas, start_row, start_column, text, negative=False):
             canvas.addch(row, column, symbol, curses.A_BOLD)
 
 
+async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
+    rows_number, columns_number = canvas.getmaxyx()
+    column = max(column, 0)
+    column = min(column, columns_number - 1)
+    row = 0
+    while row < rows_number:
+        draw_frame(canvas, row, column, garbage_frame)
+        await asyncio.sleep(0)
+        draw_frame(canvas, row, column, garbage_frame, negative=True)
+        row += speed
+
+
 def get_frame_size(text):
     """Calculate size of multiline text fragment, return pair — number of rows and colums."""
     lines = text.splitlines()
@@ -87,6 +100,24 @@ def load_frames():
     with open("sprite/rocket_frame_2.txt", "r") as sprite_file:
         ship_frames.append(sprite_file.read())
     return ship_frames
+
+
+def load_garbage_frames():
+    garbage_frames = []
+    with open("sprite/duck.txt", "r") as sprite_file:
+        garbage_frames.append(sprite_file.read())
+    with open("sprite/hubble.txt", "r") as sprite_file:
+        garbage_frames.append(sprite_file.read())
+    with open("sprite/lamp.txt", "r") as sprite_file:
+        garbage_frames.append(sprite_file.read())
+    with open("sprite/trash_large.txt", "r") as sprite_file:
+        garbage_frames.append(sprite_file.read())
+    with open("sprite/trash_small.txt", "r") as sprite_file:
+        garbage_frames.append(sprite_file.read())
+    with open("sprite/trash_xl.txt", "r") as sprite_file:
+        garbage_frames.append(sprite_file.read())
+
+    return garbage_frames
 
 
 async def animate_spaceship(canvas):
@@ -178,6 +209,10 @@ def draw(canvas):
     coroutine = fire(canvas, rows/2, cols/2)
     coroutines.append(coroutine)
     coroutine = animate_spaceship(canvas)
+    coroutines.append(coroutine)
+
+    garbage_frames = load_garbage_frames()
+    coroutine = fly_garbage(canvas, column=5, garbage_frame=random.choice(garbage_frames), speed=0.05)
     coroutines.append(coroutine)
 
     for star in range(1, STARS):
