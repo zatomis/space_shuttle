@@ -11,7 +11,7 @@ RIGHT_KEY_CODE = 261
 UP_KEY_CODE = 259
 DOWN_KEY_CODE = 258
 TIC_TIMEOUT = 0.01
-
+ROWS = COLS = 0
 
 
 def read_controls(canvas):
@@ -116,19 +116,37 @@ def load_garbage_frames():
         garbage_frames.append(sprite_file.read())
     with open("sprite/trash_xl.txt", "r") as sprite_file:
         garbage_frames.append(sprite_file.read())
-
     return garbage_frames
+
+
+async def fill_orbit_with_garbage(canvas):
+    garbage_frames = load_garbage_frames()
+    while True:
+        garbage_frame_current = random.choice(garbage_frames)
+        _, garbage_frames_size = get_frame_size(garbage_frame_current)
+        await fly_garbage(canvas, column=random.randint(1, COLS - garbage_frames_size),
+                          garbage_frame=garbage_frame_current, speed=0.05)
+        await fill_orbit_with_garbage(canvas)
+
+async def fill_orbit_with_garbage2(canvas):
+    garbage_frame_current = random.choice(load_garbage_frames())
+    _, garbage_frames_size = get_frame_size(garbage_frame_current)
+    cols = COLS - garbage_frames_size
+
+    loop = asyncio.get_event_loop()
+    loop.create_task(await fly_garbage(canvas, column=random.randint(1, cols),
+                      garbage_frame=garbage_frame_current, speed=0.05))
+    loop.run_forever()
 
 
 async def animate_spaceship(canvas):
     sprite = 0
     ship_frames = load_frames()
-    row, column = curses.initscr().getmaxyx()
     ship_size_row, ship_size_column = get_frame_size(ship_frames[sprite])
-    row_screen_edge = row - ship_size_row
-    column_screen_edge = column - ship_size_column
-    row = int(row/2)
-    column = int(column/2)
+    row_screen_edge = ROWS - ship_size_row
+    column_screen_edge = COLS - ship_size_column
+    row = int(ROWS/2)
+    column = int(COLS/2)
 
     for frame in cycle([ship_frames[0], ship_frames[0], ship_frames[1], ship_frames[1]]):
         get_row, get_column, get_space_pressed = read_controls(canvas)
@@ -147,7 +165,6 @@ async def animate_spaceship(canvas):
 
         draw_frame(canvas, row, column, frame)
         await asyncio.sleep(0)
-
         draw_frame(canvas, row, column, frame, negative=True)
 
 
@@ -155,24 +172,17 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
     """Display animation of gun shot, direction and speed can be specified."""
 
     row, column = start_row, start_column
-
     canvas.addstr(round(row), round(column), '*')
     await asyncio.sleep(0)
-
     canvas.addstr(round(row), round(column), 'O')
     await asyncio.sleep(0)
     canvas.addstr(round(row), round(column), ' ')
-
     row += rows_speed
     column += columns_speed
-
     symbol = '-' if columns_speed else '|'
-
     rows, columns = canvas.getmaxyx()
     max_row, max_column = rows - 1, columns - 1
-
     curses.beep()
-
     while 0 < row < max_row and 0 < column < max_column:
         canvas.addstr(round(row), round(column), symbol)
         await asyncio.sleep(0)
@@ -203,20 +213,17 @@ async def blink(canvas, row, column, symbol='*'):
 
 def draw(canvas):
     stars = ['*', '+', '.', ':', '#']
-    rows, cols = curses.initscr().getmaxyx()
-
     coroutines = []
-    coroutine = fire(canvas, rows/2, cols/2)
+    coroutine = fire(canvas, ROWS/2, COLS/2)
     coroutines.append(coroutine)
     coroutine = animate_spaceship(canvas)
     coroutines.append(coroutine)
-
-    garbage_frames = load_garbage_frames()
-    coroutine = fly_garbage(canvas, column=5, garbage_frame=random.choice(garbage_frames), speed=0.05)
+    coroutine = fill_orbit_with_garbage(canvas)
     coroutines.append(coroutine)
 
     for star in range(1, STARS):
-        coroutine = blink(canvas, random.randint(1, rows-2), random.randint(1, cols-2), symbol=random.choice(stars))
+        coroutine = blink(canvas, random.randint(1, ROWS-2),
+                          random.randint(1, COLS-2), symbol=random.choice(stars))
         coroutines.append(coroutine)
 
     while True:
@@ -239,4 +246,5 @@ def main():
 
 
 if __name__ == '__main__':
+    ROWS, COLS = curses.initscr().getmaxyx()
     main()
