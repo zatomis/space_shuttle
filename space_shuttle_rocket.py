@@ -12,6 +12,12 @@ UP_KEY_CODE = 259
 DOWN_KEY_CODE = 258
 TIC_TIMEOUT = 0.01
 ROWS = COLS = 0
+COROUTINES = []
+
+
+async def sleep(delay):
+    for _ in range(delay):
+        await asyncio.sleep(0)
 
 
 def read_controls(canvas):
@@ -21,7 +27,6 @@ def read_controls(canvas):
     while True:
         pressed_key_code = canvas.getch()
         if pressed_key_code == -1:
-            # https://docs.python.org/3/library/curses.html#curses.window.getch
             break
 
         if pressed_key_code == UP_KEY_CODE:
@@ -43,32 +48,24 @@ def read_controls(canvas):
 
 
 def draw_frame(canvas, start_row, start_column, text, negative=False):
-    """Draw multiline text fragment on canvas, erase text instead of drawing if negative=True is specified."""
     rows_number, columns_number = canvas.getmaxyx()
-
     for row, line in enumerate(text.splitlines(), round(start_row)):
         if row < 0:
             continue
-
         if row >= rows_number:
             break
-
         for column, symbol in enumerate(line, round(start_column)):
             if column < 0:
                 continue
-
             if column >= columns_number:
                 break
-
             if symbol == ' ':
                 continue
-
             # Check that current position it is not in a lower right corner of the window
             # Curses will raise exception in that case. Don`t ask why…
             # https://docs.python.org/3/library/curses.html#curses.window.addch
             if row == rows_number - 1 and column == columns_number - 1:
                 continue
-
             symbol = symbol if not negative else ' '
             canvas.addch(row, column, symbol, curses.A_BOLD)
 
@@ -124,19 +121,10 @@ async def fill_orbit_with_garbage(canvas):
     while True:
         garbage_frame_current = random.choice(garbage_frames)
         _, garbage_frames_size = get_frame_size(garbage_frame_current)
-        await fly_garbage(canvas, column=random.randint(1, COLS - garbage_frames_size),
+        coroutine = fly_garbage(canvas, column=random.randint(1, COLS - garbage_frames_size),
                           garbage_frame=garbage_frame_current, speed=0.05)
-        await fill_orbit_with_garbage(canvas)
-
-async def fill_orbit_with_garbage2(canvas):
-    garbage_frame_current = random.choice(load_garbage_frames())
-    _, garbage_frames_size = get_frame_size(garbage_frame_current)
-    cols = COLS - garbage_frames_size
-
-    loop = asyncio.get_event_loop()
-    loop.create_task(await fly_garbage(canvas, column=random.randint(1, cols),
-                      garbage_frame=garbage_frame_current, speed=0.05))
-    loop.run_forever()
+        COROUTINES.append(coroutine)
+        await sleep(300)
 
 
 async def animate_spaceship(canvas):
@@ -195,44 +183,39 @@ async def blink(canvas, row, column, symbol='*'):
     delay = random.randint(50, 100)
     while True:
         canvas.addstr(row, column, symbol, curses.A_DIM)
-        for _ in range(delay):
-            await asyncio.sleep(0)
+        await sleep(delay)
 
         canvas.addstr(row, column, symbol)
-        for _ in range(delay):
-            await asyncio.sleep(0)
+        await sleep(delay)
 
         canvas.addstr(row, column, symbol, curses.A_BOLD)
-        for _ in range(delay):
-            await asyncio.sleep(0)
+        await sleep(delay)
 
         canvas.addstr(row, column, symbol)
-        for _ in range(delay):
-            await asyncio.sleep(0)
+        await sleep(delay)
 
 
 def draw(canvas):
     stars = ['*', '+', '.', ':', '#']
-    coroutines = []
     coroutine = fire(canvas, ROWS/2, COLS/2)
-    coroutines.append(coroutine)
+    COROUTINES.append(coroutine)
     coroutine = animate_spaceship(canvas)
-    coroutines.append(coroutine)
+    COROUTINES.append(coroutine)
     coroutine = fill_orbit_with_garbage(canvas)
-    coroutines.append(coroutine)
+    COROUTINES.append(coroutine)
 
     for star in range(1, STARS):
         coroutine = blink(canvas, random.randint(1, ROWS-2),
                           random.randint(1, COLS-2), symbol=random.choice(stars))
-        coroutines.append(coroutine)
+        COROUTINES.append(coroutine)
 
     while True:
-        for coroutine in coroutines.copy():
+        for coroutine in COROUTINES.copy():
             try:
                 coroutine.send(None)
             except StopIteration:
-                coroutines.remove(coroutine)
-        if not coroutines:
+                COROUTINES.remove(coroutine)
+        if not COROUTINES:
             break
         time.sleep(TIC_TIMEOUT)
         canvas.refresh()
