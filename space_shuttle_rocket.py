@@ -15,6 +15,7 @@ DOWN_KEY_CODE = 258
 TIC_TIMEOUT = 0.01
 ROWS = COLS = 0
 COROUTINES = []
+TOTAL_SHOTS = 0
 
 
 async def sleep(delay):
@@ -123,23 +124,12 @@ async def fill_orbit_with_garbage(canvas):
         await sleep(300)
 
 
-
-def set_curses_colors():
-        s = 1000 / 255
-        for r, g, b in itertools.product(range(8), range(8), range(4)):
-            index = r + 8 * (g + 8 * b)
-            # Color 0 is black and can't be changed.
-            # Pair 0 is white on black and can't be changed.
-            if index:
-                r, g, b = r << 5, g << 5, b << 6
-                curses.init_color(index, int(r * s), int(g * s), int(b * s))
-                curses.init_pair(index, index, 0)
-
-
 async def display(canvas):
     while True:
-        # set_curses_colors()
+        curses.init_pair(1, curses.COLOR_RED if TOTAL_SHOTS > 1000 else curses.COLOR_CYAN, curses.COLOR_BLACK)
+        color = curses.color_pair(1)
         canvas.addstr(0, 0, 'Корутин = '+str(len(COROUTINES)))
+        canvas.addstr(1, 0, 'Всего выстрелов = '+str(TOTAL_SHOTS), color)
         canvas.refresh()
         await asyncio.sleep(0)
 
@@ -149,6 +139,7 @@ async def animate_spaceship(canvas):
     ship_frames = load_frames()
     ship_size_row, ship_size_column = get_frame_size(ship_frames[sprite])
     row_screen_edge = ROWS - int(ship_size_row/4)
+    fire_ship_position = int (ship_size_column/2)
     column_screen_edge = COLS - ship_size_column
     row = int(ROWS/2)
     column = int(COLS/2)
@@ -174,6 +165,12 @@ async def animate_spaceship(canvas):
         if column > column_screen_edge:
             column = column_screen_edge
 
+        if get_space_pressed:
+            global TOTAL_SHOTS
+            TOTAL_SHOTS += 1
+            coroutine = fire(canvas, row, column+fire_ship_position)
+            COROUTINES.append(coroutine)
+
         draw_frame(canvas, row, column, frame)
         await asyncio.sleep(0)
         draw_frame(canvas, row, column, frame, negative=True)
@@ -181,12 +178,14 @@ async def animate_spaceship(canvas):
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
     """Display animation of gun shot, direction and speed can be specified."""
+    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
+    color = curses.color_pair(2)
     row, column = start_row, start_column
-    canvas.addstr(round(row), round(column), '*')
+    canvas.addstr(round(row), round(column), '*', color)
     await asyncio.sleep(0)
-    canvas.addstr(round(row), round(column), 'O')
+    canvas.addstr(round(row), round(column), 'O', color)
     await asyncio.sleep(0)
-    canvas.addstr(round(row), round(column), ' ')
+    canvas.addstr(round(row), round(column), ' ', color)
     row += rows_speed
     column += columns_speed
     symbol = '-' if columns_speed else '|'
@@ -194,9 +193,9 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
     max_row, max_column = rows - 1, columns - 1
     curses.beep()
     while 0 < row < max_row and 0 < column < max_column:
-        canvas.addstr(round(row), round(column), symbol)
+        canvas.addstr(round(row), round(column), symbol, color)
         await asyncio.sleep(0)
-        canvas.addstr(round(row), round(column), ' ')
+        canvas.addstr(round(row), round(column), ' ', color)
         row += rows_speed
         column += columns_speed
 
@@ -216,8 +215,6 @@ async def blink(canvas, row, column, symbol='*'):
 
 def draw(canvas):
     stars = ['*', '+', '.', ':', '#']
-    coroutine = fire(canvas, ROWS/2, COLS/2)
-    COROUTINES.append(coroutine)
     coroutine = animate_spaceship(canvas)
     COROUTINES.append(coroutine)
     coroutine = fill_orbit_with_garbage(canvas)
