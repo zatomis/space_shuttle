@@ -1,8 +1,10 @@
+import itertools
 import random
 import asyncio
 import curses
 import time
 from itertools import cycle
+from physics import update_speed
 
 STARS = 200
 SPACE_KEY_CODE = 32
@@ -28,22 +30,16 @@ def read_controls(canvas):
         pressed_key_code = canvas.getch()
         if pressed_key_code == -1:
             break
-
         if pressed_key_code == UP_KEY_CODE:
             rows_direction = -1
-
         if pressed_key_code == DOWN_KEY_CODE:
             rows_direction = 1
-
         if pressed_key_code == RIGHT_KEY_CODE:
             columns_direction = 1
-
         if pressed_key_code == LEFT_KEY_CODE:
             columns_direction = -1
-
         if pressed_key_code == SPACE_KEY_CODE:
             space_pressed = True
-
     return rows_direction, columns_direction, space_pressed
 
 
@@ -127,17 +123,44 @@ async def fill_orbit_with_garbage(canvas):
         await sleep(300)
 
 
+
+def set_curses_colors():
+        s = 1000 / 255
+        for r, g, b in itertools.product(range(8), range(8), range(4)):
+            index = r + 8 * (g + 8 * b)
+            # Color 0 is black and can't be changed.
+            # Pair 0 is white on black and can't be changed.
+            if index:
+                r, g, b = r << 5, g << 5, b << 6
+                curses.init_color(index, int(r * s), int(g * s), int(b * s))
+                curses.init_pair(index, index, 0)
+
+
+async def display(canvas):
+    while True:
+        # set_curses_colors()
+        canvas.addstr(0, 0, 'Корутин = '+str(len(COROUTINES)))
+        canvas.refresh()
+        await asyncio.sleep(0)
+
+
 async def animate_spaceship(canvas):
     sprite = 0
     ship_frames = load_frames()
     ship_size_row, ship_size_column = get_frame_size(ship_frames[sprite])
-    row_screen_edge = ROWS - ship_size_row
+    row_screen_edge = ROWS - int(ship_size_row/4)
     column_screen_edge = COLS - ship_size_column
     row = int(ROWS/2)
     column = int(COLS/2)
+    row_speed = column_speed = 0
 
     for frame in cycle([ship_frames[0], ship_frames[0], ship_frames[1], ship_frames[1]]):
         get_row, get_column, get_space_pressed = read_controls(canvas)
+
+        row_speed, column_speed = update_speed(row_speed, column_speed, get_row, get_column)
+        row += row_speed
+        column += column_speed
+
         row = row + get_row
         column = column + get_column
 
@@ -158,7 +181,6 @@ async def animate_spaceship(canvas):
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
     """Display animation of gun shot, direction and speed can be specified."""
-
     row, column = start_row, start_column
     canvas.addstr(round(row), round(column), '*')
     await asyncio.sleep(0)
@@ -184,13 +206,10 @@ async def blink(canvas, row, column, symbol='*'):
     while True:
         canvas.addstr(row, column, symbol, curses.A_DIM)
         await sleep(delay)
-
         canvas.addstr(row, column, symbol)
         await sleep(delay)
-
         canvas.addstr(row, column, symbol, curses.A_BOLD)
         await sleep(delay)
-
         canvas.addstr(row, column, symbol)
         await sleep(delay)
 
@@ -202,6 +221,8 @@ def draw(canvas):
     coroutine = animate_spaceship(canvas)
     COROUTINES.append(coroutine)
     coroutine = fill_orbit_with_garbage(canvas)
+    COROUTINES.append(coroutine)
+    coroutine = display(canvas)
     COROUTINES.append(coroutine)
 
     for star in range(1, STARS):
