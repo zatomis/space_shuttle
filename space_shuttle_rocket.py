@@ -4,8 +4,9 @@ import asyncio
 import curses
 import time
 from itertools import cycle
+from explosion import explode
 from physics import update_speed
-from curses_tools import draw_frame
+from curses_tools import draw_frame, get_frame_size, sleep
 from obstacles import Obstacle, show_obstacles
 
 STARS = 200
@@ -24,10 +25,6 @@ TOTAL_SHOTS = 0
 TARGETS_DESTROYED = 0
 os.environ['TERM'] = 'xterm'
 
-
-async def sleep(delay):
-    for _ in range(delay):
-        await asyncio.sleep(0)
 
 
 def read_controls(canvas):
@@ -62,13 +59,12 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
     COROUTINES.append(show_obstacles(canvas, OBSTACLES))
     try:
         while row < rows_number:
-
             if obstacle in OBSTACLES_COLLISIONS:
                 OBSTACLES_COLLISIONS.remove(obstacle)
+                await explode(canvas, obstacle.row, obstacle.column)
                 global TARGETS_DESTROYED
                 TARGETS_DESTROYED += 1
                 break
-
             obstacle.row = row
             draw_frame(canvas, row, column, garbage_frame)
             await asyncio.sleep(0)
@@ -76,13 +72,6 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
             row += speed
     finally:
         OBSTACLES.remove(obstacle)
-
-def get_frame_size(text):
-    """Calculate size of multiline text fragment, return pair — number of rows and colums."""
-    lines = text.splitlines()
-    rows = len(lines)
-    columns = max([len(line) for line in lines])
-    return rows, columns
 
 
 def load_frames():

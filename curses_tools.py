@@ -1,3 +1,4 @@
+import asyncio
 import curses
 
 
@@ -22,3 +23,15 @@ def draw_frame(canvas, start_row, start_column, text, negative=False):
                 continue
             symbol = symbol if not negative else ' '
             canvas.addch(row, column, symbol, curses.A_BOLD)
+
+
+def get_frame_size(text):
+    """Calculate size of multiline text fragment, return pair — number of rows and colums."""
+    lines = text.splitlines()
+    rows = len(lines)
+    columns = max([len(line) for line in lines])
+    return rows, columns
+
+async def sleep(delay):
+    for _ in range(delay):
+        await asyncio.sleep(0)
