@@ -1,10 +1,12 @@
-import itertools
+import os
 import random
 import asyncio
 import curses
 import time
 from itertools import cycle
 from physics import update_speed
+from curses_tools import draw_frame
+from obstacles import Obstacle, show_obstacles
 
 STARS = 200
 SPACE_KEY_CODE = 32
@@ -15,7 +17,12 @@ DOWN_KEY_CODE = 258
 TIC_TIMEOUT = 0.01
 ROWS = COLS = 0
 COROUTINES = []
+OBSTACLES = []
+OBSTACLES_COLLISIONS = []
 TOTAL_SHOTS = 0
+TOTAL_SHOTS = 0
+TARGETS_DESTROYED = 0
+os.environ['TERM'] = 'xterm'
 
 
 async def sleep(delay):
@@ -44,40 +51,31 @@ def read_controls(canvas):
     return rows_direction, columns_direction, space_pressed
 
 
-def draw_frame(canvas, start_row, start_column, text, negative=False):
-    rows_number, columns_number = canvas.getmaxyx()
-    for row, line in enumerate(text.splitlines(), round(start_row)):
-        if row < 0:
-            continue
-        if row >= rows_number:
-            break
-        for column, symbol in enumerate(line, round(start_column)):
-            if column < 0:
-                continue
-            if column >= columns_number:
-                break
-            if symbol == ' ':
-                continue
-            # Check that current position it is not in a lower right corner of the window
-            # Curses will raise exception in that case. Don`t ask why…
-            # https://docs.python.org/3/library/curses.html#curses.window.addch
-            if row == rows_number - 1 and column == columns_number - 1:
-                continue
-            symbol = symbol if not negative else ' '
-            canvas.addch(row, column, symbol, curses.A_BOLD)
-
-
 async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
     rows_number, columns_number = canvas.getmaxyx()
+    garbage_row_size, garbage_columns_size = get_frame_size(garbage_frame)
     column = max(column, 0)
     column = min(column, columns_number - 1)
     row = 0
-    while row < rows_number:
-        draw_frame(canvas, row, column, garbage_frame)
-        await asyncio.sleep(0)
-        draw_frame(canvas, row, column, garbage_frame, negative=True)
-        row += speed
+    obstacle = Obstacle(row, column, garbage_row_size, garbage_columns_size)
+    OBSTACLES.append(obstacle)
+    COROUTINES.append(show_obstacles(canvas, OBSTACLES))
+    try:
+        while row < rows_number:
 
+            if obstacle in OBSTACLES_COLLISIONS:
+                OBSTACLES_COLLISIONS.remove(obstacle)
+                global TARGETS_DESTROYED
+                TARGETS_DESTROYED += 1
+                break
+
+            obstacle.row = row
+            draw_frame(canvas, row, column, garbage_frame)
+            await asyncio.sleep(0)
+            draw_frame(canvas, row, column, garbage_frame, negative=True)
+            row += speed
+    finally:
+        OBSTACLES.remove(obstacle)
 
 def get_frame_size(text):
     """Calculate size of multiline text fragment, return pair — number of rows and colums."""
@@ -121,15 +119,16 @@ async def fill_orbit_with_garbage(canvas):
         coroutine = fly_garbage(canvas, column=random.randint(1, COLS - garbage_frames_size),
                           garbage_frame=garbage_frame_current, speed=0.05)
         COROUTINES.append(coroutine)
-        await sleep(300)
+        await sleep(random.randint(100,300))
 
 
 async def display(canvas):
     while True:
         curses.init_pair(1, curses.COLOR_RED if TOTAL_SHOTS > 1000 else curses.COLOR_CYAN, curses.COLOR_BLACK)
         color = curses.color_pair(1)
-        canvas.addstr(0, 0, 'Корутин = '+str(len(COROUTINES)))
-        canvas.addstr(1, 0, 'Всего выстрелов = '+str(TOTAL_SHOTS), color)
+        canvas.addstr(0, 0, 'Всего выстрелов = '+str(TOTAL_SHOTS), color)
+        canvas.addstr(1, 0, 'Всего OBSTACLES = '+str(len(OBSTACLES)))
+        canvas.addstr(2, 0, 'Уничтожено = '+str(TARGETS_DESTROYED))
         canvas.refresh()
         await asyncio.sleep(0)
 
@@ -193,6 +192,10 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
     max_row, max_column = rows - 1, columns - 1
     curses.beep()
     while 0 < row < max_row and 0 < column < max_column:
+        for obstacle in OBSTACLES:
+            if obstacle.has_collision(row, column):
+                OBSTACLES_COLLISIONS.append(obstacle)
+                break
         canvas.addstr(round(row), round(column), symbol, color)
         await asyncio.sleep(0)
         canvas.addstr(round(row), round(column), ' ', color)
