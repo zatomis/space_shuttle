@@ -38,7 +38,7 @@ python3 -m venv venv
 pip install -r requirements.txt
 ```
 
-
+![Game.gif](Game.gif)
 
 ## Цели проекта
 

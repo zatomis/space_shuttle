@@ -123,6 +123,14 @@ async def display_end_game(canvas):
         canvas.addstr(8, 15, '██╔═██╗ ██║   ██║██╔══██║██╔══╝  ██║   ██║', color)
         canvas.addstr(9, 15, '██║  ██╗╚██████╔╝██║  ██║███████╗╚██████╔╝▄█╗', color)
         canvas.addstr(10, 15, '╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝', color)
+        canvas.addstr(11, 15, '', color)
+        canvas.addstr(12, 15, '██     ██╗███████╗██████╗ ██╗      ██╗', color)
+        canvas.addstr(13, 15, '██  ╔█╗██║██╔════╝██╔══██╗██║      ██║', color)
+        canvas.addstr(14, 15, '██ ╔██║██║██║     ██████╔╝██║█████╗██║', color)
+        canvas.addstr(15, 15, '██╔██╝ ██║██║     ██╔═══╝ ██║   ██║██║', color)
+        canvas.addstr(16, 15, '██║    ██║██║     ██║     ╚██████╔╝██║', color)
+        canvas.addstr(17, 15, '╚═╝  ╚═══╝╚═╝     ╚═╝      ╚═════╝ ╚═╝', color)
+
         canvas.refresh()
         await asyncio.sleep(0)
 
@@ -131,19 +139,19 @@ async def display(canvas):
     while True:
         curses.init_pair(1, curses.COLOR_RED if TOTAL_SHOTS > 1000 else curses.COLOR_CYAN, curses.COLOR_BLACK)
         color = curses.color_pair(1)
-        canvas.addstr(0, 0, 'Всего выстрелов = '+str(TOTAL_SHOTS), color)
-        canvas.addstr(1, 0, 'Год = '+str(YEAR))
-        canvas.addstr(2, 0, 'События: '+EVENTS)
-        canvas.addstr(3, 0, 'Уничтожено = '+str(TARGETS_DESTROYED))
+        canvas.addstr(ROWS-5, 0, 'Всего выстрелов = '+str(TOTAL_SHOTS), color)
+        if DAMAGE != 100:
+            canvas.addstr(ROWS-4, 0, 'Год = '+str(YEAR))
         curses.init_pair(2, curses.COLOR_RED if DAMAGE > 90 else curses.COLOR_GREEN, curses.COLOR_BLACK)
         color_damage = curses.color_pair(2)
-        canvas.addstr(4, 0, 'Повреждений = '+str(DAMAGE)+"%", color_damage)
+        canvas.addstr(ROWS-3, 0, 'Повреждений = '+str(DAMAGE)+"%", color_damage)
+        canvas.addstr(ROWS-2, 0, 'Уничтожено = '+str(TARGETS_DESTROYED))
+        canvas.addstr(ROWS-1, 0, 'События: '+EVENTS)
         canvas.refresh()
         await asyncio.sleep(0)
 
 async def year():
     PHRASES = {
-        # Только на английском, Repl.it ломается на кириллице
         1957: "First Sputnik",
         1961: "Gagarin flew!",
         1969: "Armstrong got on the moon!",
@@ -152,17 +160,16 @@ async def year():
         1998: 'ISS start building',
         2011: 'Messenger launch to Mercury',
         2020: "Take the plasma gun! Shoot the garbage!",
-        2022: "Wow, earth is flat",
-        2024: "Present days!",
+        2022: "Present days!",
+        2024: "Wow, earth is flat",
     }
-
+    global YEAR, EVENTS, GARBAGE_DELAY_TICS
     while True:
-        global YEAR, EVENTS, GARBAGE_DELAY_TICS
         YEAR += 1
-        EVENTS = PHRASES.get(YEAR, '                                     ')
+        EVENTS = PHRASES.get(YEAR, '')
         if EVENTS:
             GARBAGE_DELAY_TICS -= 50
-        await sleep(100)
+        await sleep(30)
 
 
 async def animate_spaceship(canvas):
