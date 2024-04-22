@@ -20,10 +20,12 @@ ROWS = COLS = 0
 COROUTINES = []
 OBSTACLES = []
 OBSTACLES_COLLISIONS = []
+EVENTS = ""
 TOTAL_SHOTS = 0
-TOTAL_SHOTS = 0
+YEAR = 1956
 TARGETS_DESTROYED = 0
-os.environ['TERM'] = 'xterm'
+DAMAGE = 0
+GARBAGE_DELAY_TICS = 550
 
 
 
@@ -108,7 +110,21 @@ async def fill_orbit_with_garbage(canvas):
         coroutine = fly_garbage(canvas, column=random.randint(1, COLS - garbage_frames_size),
                           garbage_frame=garbage_frame_current, speed=0.05)
         COROUTINES.append(coroutine)
-        await sleep(random.randint(100,300))
+        await sleep(GARBAGE_DELAY_TICS)
+
+
+async def display_end_game(canvas):
+    while True:
+        curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+        color = curses.color_pair(1)
+        canvas.addstr(5, 15, '██╗  ██╗ ██████╗ ██╗  ██╗███████╗██╗   ██╗', color)
+        canvas.addstr(6, 15, '██║ ██╔╝██╔═══██╗██║  ██║██╔════╝██║   ██║', color)
+        canvas.addstr(7, 15, '█████╔╝ ██║   ██║███████║█████╗  ██║   ██║', color)
+        canvas.addstr(8, 15, '██╔═██╗ ██║   ██║██╔══██║██╔══╝  ██║   ██║', color)
+        canvas.addstr(9, 15, '██║  ██╗╚██████╔╝██║  ██║███████╗╚██████╔╝▄█╗', color)
+        canvas.addstr(10, 15, '╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝', color)
+        canvas.refresh()
+        await asyncio.sleep(0)
 
 
 async def display(canvas):
@@ -116,10 +132,37 @@ async def display(canvas):
         curses.init_pair(1, curses.COLOR_RED if TOTAL_SHOTS > 1000 else curses.COLOR_CYAN, curses.COLOR_BLACK)
         color = curses.color_pair(1)
         canvas.addstr(0, 0, 'Всего выстрелов = '+str(TOTAL_SHOTS), color)
-        canvas.addstr(1, 0, 'Всего OBSTACLES = '+str(len(OBSTACLES)))
-        canvas.addstr(2, 0, 'Уничтожено = '+str(TARGETS_DESTROYED))
+        canvas.addstr(1, 0, 'Год = '+str(YEAR))
+        canvas.addstr(2, 0, 'События: '+EVENTS)
+        canvas.addstr(3, 0, 'Уничтожено = '+str(TARGETS_DESTROYED))
+        curses.init_pair(2, curses.COLOR_RED if DAMAGE > 90 else curses.COLOR_GREEN, curses.COLOR_BLACK)
+        color_damage = curses.color_pair(2)
+        canvas.addstr(4, 0, 'Повреждений = '+str(DAMAGE)+"%", color_damage)
         canvas.refresh()
         await asyncio.sleep(0)
+
+async def year():
+    PHRASES = {
+        # Только на английском, Repl.it ломается на кириллице
+        1957: "First Sputnik",
+        1961: "Gagarin flew!",
+        1969: "Armstrong got on the moon!",
+        1971: "First orbital space station Salute-1",
+        1981: "Flight of the Shuttle Columbia",
+        1998: 'ISS start building',
+        2011: 'Messenger launch to Mercury',
+        2020: "Take the plasma gun! Shoot the garbage!",
+        2022: "Wow, earth is flat",
+        2024: "Present days!",
+    }
+
+    while True:
+        global YEAR, EVENTS, GARBAGE_DELAY_TICS
+        YEAR += 1
+        EVENTS = PHRASES.get(YEAR, '                                     ')
+        if EVENTS:
+            GARBAGE_DELAY_TICS -= 50
+        await sleep(100)
 
 
 async def animate_spaceship(canvas):
@@ -127,41 +170,49 @@ async def animate_spaceship(canvas):
     ship_frames = load_frames()
     ship_size_row, ship_size_column = get_frame_size(ship_frames[sprite])
     row_screen_edge = ROWS - int(ship_size_row/4)
-    fire_ship_position = int (ship_size_column/2)
+    fire_ship_position = int(ship_size_column/2)
     column_screen_edge = COLS - ship_size_column
     row = int(ROWS/2)
     column = int(COLS/2)
     row_speed = column_speed = 0
-
+    global DAMAGE
     for frame in cycle([ship_frames[0], ship_frames[0], ship_frames[1], ship_frames[1]]):
-        get_row, get_column, get_space_pressed = read_controls(canvas)
+        for obstacle in OBSTACLES:
+            if obstacle.has_collision(row, column):
+                DAMAGE += 1
 
-        row_speed, column_speed = update_speed(row_speed, column_speed, get_row, get_column)
-        row += row_speed
-        column += column_speed
+        if DAMAGE <= 99:
+            get_row, get_column, get_space_pressed = read_controls(canvas)
+            row_speed, column_speed = update_speed(row_speed, column_speed, get_row, get_column)
 
-        row = row + get_row
-        column = column + get_column
+            row += row_speed
+            column += column_speed
+            row = row + get_row
+            column = column + get_column
 
-        if row < 0:
-            row = 0
-        if column < 0:
-            column = 0
-
-        if row > row_screen_edge:
-            row = row_screen_edge
-        if column > column_screen_edge:
-            column = column_screen_edge
-
-        if get_space_pressed:
-            global TOTAL_SHOTS
-            TOTAL_SHOTS += 1
-            coroutine = fire(canvas, row, column+fire_ship_position)
+            if row < 0:
+                row = 0
+            if column < 0:
+                column = 0
+            if row > row_screen_edge:
+                row = row_screen_edge
+            if column > column_screen_edge:
+                column = column_screen_edge
+            if get_space_pressed:
+                global TOTAL_SHOTS
+                TOTAL_SHOTS += 1
+                coroutine = fire(canvas, row, column+fire_ship_position)
+                COROUTINES.append(coroutine)
+            draw_frame(canvas, row, column, frame)
+            await asyncio.sleep(0)
+            draw_frame(canvas, row, column, frame, negative=True)
+        else:
+            DAMAGE = 100
+            coroutine = display_end_game(canvas)
             COROUTINES.append(coroutine)
+            await asyncio.sleep(0)
 
-        draw_frame(canvas, row, column, frame)
-        await asyncio.sleep(0)
-        draw_frame(canvas, row, column, frame, negative=True)
+
 
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
@@ -212,6 +263,8 @@ def draw(canvas):
     coroutine = fill_orbit_with_garbage(canvas)
     COROUTINES.append(coroutine)
     coroutine = display(canvas)
+    COROUTINES.append(coroutine)
+    coroutine = year()
     COROUTINES.append(coroutine)
 
     for star in range(1, STARS):
