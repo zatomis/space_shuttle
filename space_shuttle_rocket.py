@@ -16,16 +16,16 @@ RIGHT_KEY_CODE = 261
 UP_KEY_CODE = 259
 DOWN_KEY_CODE = 258
 TIC_TIMEOUT = 0.01
-ROWS = COLS = 0
-COROUTINES = []
-OBSTACLES = []
-OBSTACLES_COLLISIONS = []
-EVENTS = ""
-TOTAL_SHOTS = 0
-YEAR = 1956
-TARGETS_DESTROYED = 0
-DAMAGE = 0
-GARBAGE_DELAY_TICS = 550
+rows = cols = 0
+coroutines = []
+obstacles = []
+obstacles_collisions = []
+events = ""
+total_shots = 0
+year = 1956
+targets_destroyed = 0
+damage = 0
+garbage_delay_tics = 550
 
 
 
@@ -57,15 +57,15 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
     column = min(column, columns_number - 1)
     row = 0
     obstacle = Obstacle(row, column, garbage_row_size, garbage_columns_size)
-    OBSTACLES.append(obstacle)
-    COROUTINES.append(show_obstacles(canvas, OBSTACLES))
+    obstacles.append(obstacle)
+    coroutines.append(show_obstacles(canvas, obstacles))
     try:
         while row < rows_number:
-            if obstacle in OBSTACLES_COLLISIONS:
-                OBSTACLES_COLLISIONS.remove(obstacle)
+            if obstacle in obstacles_collisions:
+                obstacles_collisions.remove(obstacle)
                 await explode(canvas, obstacle.row, obstacle.column)
-                global TARGETS_DESTROYED
-                TARGETS_DESTROYED += 1
+                global targets_destroyed
+                targets_destroyed += 1
                 break
             obstacle.row = row
             draw_frame(canvas, row, column, garbage_frame)
@@ -73,7 +73,7 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
             draw_frame(canvas, row, column, garbage_frame, negative=True)
             row += speed
     finally:
-        OBSTACLES.remove(obstacle)
+        obstacles.remove(obstacle)
 
 
 def load_frames():
@@ -87,18 +87,11 @@ def load_frames():
 
 def load_garbage_frames():
     garbage_frames = []
-    with open("sprite/duck.txt", "r") as sprite_file:
-        garbage_frames.append(sprite_file.read())
-    with open("sprite/hubble.txt", "r") as sprite_file:
-        garbage_frames.append(sprite_file.read())
-    with open("sprite/lamp.txt", "r") as sprite_file:
-        garbage_frames.append(sprite_file.read())
-    with open("sprite/trash_large.txt", "r") as sprite_file:
-        garbage_frames.append(sprite_file.read())
-    with open("sprite/trash_small.txt", "r") as sprite_file:
-        garbage_frames.append(sprite_file.read())
-    with open("sprite/trash_xl.txt", "r") as sprite_file:
-        garbage_frames.append(sprite_file.read())
+    directory = 'sprite'
+    for file in os.listdir(directory):
+        if file.endswith(".txt"):
+            with open(os.path.join(directory, file), "r") as sprite_file:
+                garbage_frames.append(sprite_file.read())
     return garbage_frames
 
 
@@ -107,10 +100,10 @@ async def fill_orbit_with_garbage(canvas):
     while True:
         garbage_frame_current = random.choice(garbage_frames)
         _, garbage_frames_size = get_frame_size(garbage_frame_current)
-        coroutine = fly_garbage(canvas, column=random.randint(1, COLS - garbage_frames_size),
+        coroutine = fly_garbage(canvas, column=random.randint(1, cols - garbage_frames_size),
                           garbage_frame=garbage_frame_current, speed=0.05)
-        COROUTINES.append(coroutine)
-        await sleep(GARBAGE_DELAY_TICS)
+        coroutines.append(coroutine)
+        await sleep(garbage_delay_tics)
 
 
 async def display_end_game(canvas):
@@ -130,27 +123,26 @@ async def display_end_game(canvas):
         canvas.addstr(15, 15, '██╔██╝ ██║██║     ██╔═══╝ ██║   ██║██║', color)
         canvas.addstr(16, 15, '██║    ██║██║     ██║     ╚██████╔╝██║', color)
         canvas.addstr(17, 15, '╚═╝  ╚═══╝╚═╝     ╚═╝      ╚═════╝ ╚═╝', color)
-
         canvas.refresh()
         await asyncio.sleep(0)
 
 
 async def display(canvas):
     while True:
-        curses.init_pair(1, curses.COLOR_RED if TOTAL_SHOTS > 1000 else curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(1, curses.COLOR_RED if total_shots > 1000 else curses.COLOR_CYAN, curses.COLOR_BLACK)
         color = curses.color_pair(1)
-        canvas.addstr(ROWS-5, 0, 'Всего выстрелов = '+str(TOTAL_SHOTS), color)
-        if DAMAGE != 100:
-            canvas.addstr(ROWS-4, 0, 'Год = '+str(YEAR))
-        curses.init_pair(2, curses.COLOR_RED if DAMAGE > 90 else curses.COLOR_GREEN, curses.COLOR_BLACK)
+        canvas.addstr(rows-5, 0, 'Всего выстрелов = '+str(total_shots), color)
+        if damage != 100:
+            canvas.addstr(rows-4, 0, 'Год = '+str(year))
+        curses.init_pair(2, curses.COLOR_RED if damage > 90 else curses.COLOR_GREEN, curses.COLOR_BLACK)
         color_damage = curses.color_pair(2)
-        canvas.addstr(ROWS-3, 0, 'Повреждений = '+str(DAMAGE)+"%", color_damage)
-        canvas.addstr(ROWS-2, 0, 'Уничтожено = '+str(TARGETS_DESTROYED))
-        canvas.addstr(ROWS-1, 0, 'События: '+EVENTS)
+        canvas.addstr(rows-3, 0, 'Повреждений = '+str(damage)+"%", color_damage)
+        canvas.addstr(rows-2, 0, 'Уничтожено = '+str(targets_destroyed))
+        canvas.addstr(rows-1, 0, 'События: '+events)
         canvas.refresh()
         await asyncio.sleep(0)
 
-async def year():
+async def years():
     PHRASES = {
         1957: "First Sputnik",
         1961: "Gagarin flew!",
@@ -163,12 +155,12 @@ async def year():
         2022: "Present days!",
         2024: "Wow, earth is flat",
     }
-    global YEAR, EVENTS, GARBAGE_DELAY_TICS
+    global year, events, garbage_delay_tics
     while True:
-        YEAR += 1
-        EVENTS = PHRASES.get(YEAR, '')
-        if EVENTS:
-            GARBAGE_DELAY_TICS -= 50
+        year += 1
+        events = PHRASES.get(year, '')
+        if events:
+            garbage_delay_tics -= 50
         await sleep(30)
 
 
@@ -176,26 +168,26 @@ async def animate_spaceship(canvas):
     sprite = 0
     ship_frames = load_frames()
     ship_size_row, ship_size_column = get_frame_size(ship_frames[sprite])
-    row_screen_edge = ROWS - int(ship_size_row/4)
+    row_screen_edge = rows - int(ship_size_row/4)
     fire_ship_position = int(ship_size_column/2)
-    column_screen_edge = COLS - ship_size_column
-    row = int(ROWS/2)
-    column = int(COLS/2)
+    column_screen_edge = cols - ship_size_column
+    row = int(rows/2)
+    column = int(cols/2)
     row_speed = column_speed = 0
-    global DAMAGE
+    global damage
     for frame in cycle([ship_frames[0], ship_frames[0], ship_frames[1], ship_frames[1]]):
-        for obstacle in OBSTACLES:
+        for obstacle in obstacles:
             if obstacle.has_collision(row, column):
-                DAMAGE += 1
+                damage += 1
 
-        if DAMAGE <= 99:
-            get_row, get_column, get_space_pressed = read_controls(canvas)
-            row_speed, column_speed = update_speed(row_speed, column_speed, get_row, get_column)
+        if damage <= 99:
+            row_controls, column_controls, space_pressed = read_controls(canvas)
+            row_speed, column_speed = update_speed(row_speed, column_speed, row_controls, column_controls)
 
             row += row_speed
             column += column_speed
-            row = row + get_row
-            column = column + get_column
+            row = row + row_controls
+            column = column + column_controls
 
             if row < 0:
                 row = 0
@@ -205,18 +197,18 @@ async def animate_spaceship(canvas):
                 row = row_screen_edge
             if column > column_screen_edge:
                 column = column_screen_edge
-            if get_space_pressed:
-                global TOTAL_SHOTS
-                TOTAL_SHOTS += 1
+            if space_pressed:
+                global total_shots
+                total_shots += 1
                 coroutine = fire(canvas, row, column+fire_ship_position)
-                COROUTINES.append(coroutine)
+                coroutines.append(coroutine)
             draw_frame(canvas, row, column, frame)
             await asyncio.sleep(0)
             draw_frame(canvas, row, column, frame, negative=True)
         else:
-            DAMAGE = 100
+            damage = 100
             coroutine = display_end_game(canvas)
-            COROUTINES.append(coroutine)
+            coroutines.append(coroutine)
             await asyncio.sleep(0)
 
 
@@ -239,9 +231,9 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
     max_row, max_column = rows - 1, columns - 1
     curses.beep()
     while 0 < row < max_row and 0 < column < max_column:
-        for obstacle in OBSTACLES:
+        for obstacle in obstacles:
             if obstacle.has_collision(row, column):
-                OBSTACLES_COLLISIONS.append(obstacle)
+                obstacles_collisions.append(obstacle)
                 return
         canvas.addstr(round(row), round(column), symbol, color)
         await asyncio.sleep(0)
@@ -266,26 +258,26 @@ async def blink(canvas, row, column, symbol='*'):
 def draw(canvas):
     stars = ['*', '+', '.', ':', '#']
     coroutine = animate_spaceship(canvas)
-    COROUTINES.append(coroutine)
+    coroutines.append(coroutine)
     coroutine = fill_orbit_with_garbage(canvas)
-    COROUTINES.append(coroutine)
+    coroutines.append(coroutine)
     coroutine = display(canvas)
-    COROUTINES.append(coroutine)
-    coroutine = year()
-    COROUTINES.append(coroutine)
+    coroutines.append(coroutine)
+    coroutine = years()
+    coroutines.append(coroutine)
 
     for star in range(1, STARS):
-        coroutine = blink(canvas, random.randint(1, ROWS-2),
-                          random.randint(1, COLS-2), symbol=random.choice(stars))
-        COROUTINES.append(coroutine)
+        coroutine = blink(canvas, random.randint(1, rows-2),
+                          random.randint(1, cols-2), symbol=random.choice(stars))
+        coroutines.append(coroutine)
 
     while True:
-        for coroutine in COROUTINES.copy():
+        for coroutine in coroutines.copy():
             try:
                 coroutine.send(None)
             except StopIteration:
-                COROUTINES.remove(coroutine)
-        if not COROUTINES:
+                coroutines.remove(coroutine)
+        if not coroutines:
             break
         time.sleep(TIC_TIMEOUT)
         canvas.refresh()
@@ -299,5 +291,5 @@ def main():
 
 
 if __name__ == '__main__':
-    ROWS, COLS = curses.initscr().getmaxyx()
+    rows, cols = curses.initscr().getmaxyx()
     main()
